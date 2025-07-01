@@ -1,0 +1,24 @@
+ANPR/
+├── README.md                   # Project description and usage instructions
+├── LICENSE                     # License for your project (if any)
+├── requirements.txt            # Dependencies for the project
+├── .gitignore                  # Files and folders to ignore in Git
+├── src/                        # Source code
+│   ├── main.py                 # Main script to run the project
+│   ├── plate_detection.py      # Module for detecting number plates
+│   ├── text_recognition.py     # Module for recognizing text from plates
+│   ├── utils.py                # Utility functions (e.g., image preprocessing)
+│   └── camera.py               # Module for capturing images from the camera
+├── data/                       # Folder for datasets
+│   ├── raw_images/             # Raw images captured by the camera
+│   ├── labeled_data/           # Labeled images for training/testing
+│   └── output/                 # Output images/results
+├── models/                     # Pre-trained or custom models
+│   └── ocr_model/              # Model files for Optical Character Recognition (OCR)
+├── tests/                      # Test scripts
+│   ├── test_plate_detection.py # Unit tests for plate detection module
+│   ├── test_text_recognition.py # Unit tests for text recognition module
+│   └── test_camera.py          # Unit tests for camera module
+└── docs/                       # Documentation
+    ├── design.md               # Design documentation
+    └── usage.md                # Usage and setup instructions

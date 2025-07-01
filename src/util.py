@@ -10,7 +10,7 @@ dict_char_to_int = {'O': '0',
                     'I': '1',
                     'J': '3',
                     'A': '4',
-                    'G': '6',
+                    'G': '0',
                     'S': '5'}
 
 dict_int_to_char = {'0': 'O',
@@ -166,10 +166,11 @@ def read_license_plate(license_plate_crop):
     for detection in detections:
         bbox, text, score = detection
 
+        # if filter_text(text):
+        #     text = format_license(text)
         return filter_text(text), score
 
-        # if filter_text(text):
-        #     return format_license(text), score
+        
     
     return None, None
 
