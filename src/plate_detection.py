@@ -201,9 +201,9 @@ def detect_and_read_plate(image_path, conf_threshold=0.5):
             raise ValueError("Could not read text from license plate")
 
         # Save the results
-        output_dir = os.path.dirname(image_path)
-        cv2.imwrite(os.path.join(output_dir, 'detected_plate.jpg'), best_processed_img)
-        cv2.imwrite(os.path.join(output_dir, 'marked_car.jpg'), marked_image)
+        # output_dir = os.path.dirname(image_path)
+        # cv2.imwrite(os.path.join(output_dir, 'detected_plate.jpg'), best_processed_img)
+        # cv2.imwrite(os.path.join(output_dir, 'marked_car.jpg'), marked_image)
 
         return {
             'success': True,
