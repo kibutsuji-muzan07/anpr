@@ -4,6 +4,72 @@ import numpy as np
 import easyocr
 import os
 import re
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+def read_license_plate_from_xml(xml_path):
+    """Read license plate number from XML metadata file"""
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        # Find the object tag and extract the name (license plate number)
+        for obj in root.findall('object'):
+            name = obj.find('name')
+            if name is not None:
+                return name.text.strip()
+    except Exception as e:
+        print(f"Error reading XML file {xml_path}: {str(e)}")
+    return None
+
+def get_training_data(base_dir):
+    """Get training data by reading all image-XML pairs"""
+    training_data = []
+    
+    def process_directory(directory):
+        """Process a directory and its subdirectories for XML-image pairs"""
+        if not directory.exists():
+            return
+        
+        # Process all XML files in current directory
+        for xml_file in directory.glob('*.xml'):
+            # Get corresponding image file
+            img_extensions = ['.jpg', '.jpeg', '.png']
+            img_file = None
+            for ext in img_extensions:
+                possible_img = xml_file.with_suffix(ext)
+                if possible_img.exists():
+                    img_file = possible_img
+                    break
+            
+            if img_file is None:
+                continue
+                
+            # Read license plate number from XML
+            plate_number = read_license_plate_from_xml(xml_file)
+            if plate_number:
+                training_data.append({
+                    'image_path': str(img_file),
+                    'plate_number': plate_number
+                })
+        
+        # Process subdirectories
+        for subdir in directory.iterdir():
+            if subdir.is_dir():
+                process_directory(subdir)
+    
+    # List of root directories to search
+    search_dirs = [
+        Path(base_dir) / 'raw_images',
+        Path(base_dir) / 'raw_images' / 'google_images',
+        Path(base_dir) / 'raw_images' / 'video_images',
+        Path(base_dir) / 'raw_images' / 'State-wise_OLX'
+    ]
+    
+    # Process each root directory
+    for search_dir in search_dirs:
+        process_directory(search_dir)
+    
+    return training_data
 
 def preprocess_plate(plate_region):
     """Apply multiple preprocessing techniques and return a list of processed images"""
@@ -226,39 +292,48 @@ def detect_and_read_plate(image_path, conf_threshold=0.5):
             'error': str(e)
         }
 
-def display_results(result):
-    """Display the results of license plate detection"""
-    if not result['success']:
-        print(f"Error: {result['error']}")
-        return
+# def display_results(result):
+#     """Display the results of license plate detection"""
+#     if not result['success']:
+#         print(f"Error: {result['error']}")
+#         return
 
-    # print(f"Detected License Plate Text: {result['plate_text']}")
-    # print(f"Detection Confidence: {result['detection_confidence']:.2f}")
-    # print(f"Overall Confidence: {result['confidence']:.2f}")
+#     # print(f"Detected License Plate Text: {result['plate_text']}")
+#     # print(f"Detection Confidence: {result['detection_confidence']:.2f}")
+#     # print(f"Overall Confidence: {result['confidence']:.2f}")
     
-    # Display the results
-    cv2.imshow('Original Image with Plate', result['marked_image'])
-    cv2.imshow('License Plate', result['plate_image'])
+#     # Display the results
+#     cv2.imshow('Original Image with Plate', result['marked_image'])
+#     cv2.imshow('License Plate', result['plate_image'])
     
-    # Wait for key press and handle window closing
-    while True:
-        key = cv2.waitKey(1) & 0xFF
-        # If 'q' or ESC is pressed, or window is closed
-        if key == ord('q') or key == 27 or cv2.getWindowProperty('Original Image with Plate', cv2.WND_PROP_VISIBLE) < 1:
-            break
+#     # Wait for key press and handle window closing
+#     while True:
+#         key = cv2.waitKey(1) & 0xFF
+#         # If 'q' or ESC is pressed, or window is closed
+#         if key == ord('q') or key == 27 or cv2.getWindowProperty('Original Image with Plate', cv2.WND_PROP_VISIBLE) < 1:
+#             break
     
-    # Properly destroy all windows
-    cv2.destroyAllWindows()
-    # Ensure windows are actually destroyed by forcing a window update
-    cv2.waitKey(1)
+#     # Properly destroy all windows
+#     cv2.destroyAllWindows()
+#     # Ensure windows are actually destroyed by forcing a window update
+#     cv2.waitKey(1)
 
 # # Example usage
 # if __name__ == "__main__":
-#     img_path = 'data/raw_images/car_7.jpg'
-#     # You can adjust the confidence threshold if needed
-#     result = detect_and_read_plate(img_path)
-#     if result['success']:
-#         print(f"Detected Text: {result['plate_text']}")
-#         print(f"Detection Confidence: {result['detection_confidence']:.2f}")
-#         print(f"Overall Confidence: {result['confidence']:.2f}")
-#     display_results(result)
+#     # Get the training data
+#     data_dir = 'data'
+#     training_data = get_training_data(data_dir)
+#     print(f"Found {len(training_data)} image-label pairs")
+    
+#     # Process a few examples to verify
+#     for item in training_data[:5]:  # Show first 5 examples
+#         print(f"\nProcessing {item['image_path']}")
+#         print(f"XML License Plate: {item['plate_number']}")
+        
+#         # Try to detect and read the plate
+#         result = detect_and_read_plate(item['image_path'])
+#         if result['success']:
+#             print(f"Detected Text: {result['plate_text']}")
+#             print(f"Detection Confidence: {result['detection_confidence']:.2f}")
+#             print(f"Overall Confidence: {result['confidence']:.2f}")
+#             display_results(result)

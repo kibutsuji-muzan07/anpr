@@ -1,61 +1,94 @@
 import os
-import re
-from plate_detection import detect_and_read_plate, display_results
+from pathlib import Path
+import xml.etree.ElementTree as ET
+from plate_detection import detect_and_read_plate, get_training_data
 
 LABELS_FILE = os.path.join('data/labeled_data', 'labels.txt')
-image_path = "data/raw_images"
+DATA_DIR = "data"
 
-def save_label(image_path, plate_text, labels_file=LABELS_FILE):
-    """Save the mapping of image path to license plate text."""
-    with open(labels_file, 'a') as f:
-        f.write(f"{image_path}\t{plate_text}\n")
-
-def main(img):
-    # img_path = os.path.join(image_path, img)
-    result = detect_and_read_plate(img)
-    display_results(result)
-    if result['success']:
-        print(f"Detected Text: {result['plate_text']}")
-        print(f"Detection Confidence: {result['detection_confidence']:.2f}")
-        print(f"Overall Confidence: {result['confidence']:.2f}")
-
-        # Prompt user for correction
-        user_input = input(f"Enter correct license plate number for {os.path.basename(img)} [{result['plate_text']}]: ").strip()
-        if not user_input:
-            user_input = result['plate_text']
-        save_label(img, user_input)
+def save_to_labels_file(training_data, labels_file=LABELS_FILE):
+    """Save all image paths and license plate numbers to the labels file"""
+    # Create the directory if it doesn't exist
+    os.makedirs(os.path.dirname(labels_file), exist_ok=True)
     
-# Train the model with the labeled data
-    # Assuming you have a function to train the model
-    # train_model(LABELS_FILE)
+    # Remove existing labels file if it exists
+    if os.path.exists(labels_file):
+        os.remove(labels_file)
+    
+    # Write the data
+    with open(labels_file, 'w') as f:
+        for item in training_data:
+            f.write(f"{item['image_path']}\t{item['plate_number']}\n")
+
+def verify_detections(training_data, num_samples=None):
+    """Verify plate detections against XML data"""
+    import random
+    
+    if num_samples is not None:
+        # Randomly sample the data
+        if num_samples > len(training_data):
+            num_samples = len(training_data)
+        data_to_process = random.sample(training_data, num_samples)
+    else:
+        data_to_process = training_data
+
+    results = {
+        'total': len(data_to_process),
+        'successful_detections': 0,
+        'matches': 0,
+        'mismatches': 0,
+        'failed_detections': 0
+    }
+
+    for item in data_to_process:
+        print(f"\nProcessing: {item['image_path']}")
+        print(f"Ground Truth (XML): {item['plate_number']}")
+        
+        # Try to detect the plate
+        result = detect_and_read_plate(item['image_path'])
+        
+        if result['success']:
+            results['successful_detections'] += 1
+            detected_text = result['plate_text']
+            print(f"Detected Text: {detected_text}")
+            print(f"Confidence: {result['confidence']:.2f}")
+            
+            # Compare with ground truth
+            if detected_text.upper() == item['plate_number'].upper():
+                results['matches'] += 1
+                print("✓ Match!")
+            else:
+                results['mismatches'] += 1
+                print("✗ Mismatch")
+        else:
+            results['failed_detections'] += 1
+            print(f"Detection failed: {result['error']}")
+
+    return results
+
+def print_statistics(stats):
+    """Print detection and matching statistics"""
+    print("\n=== Detection Statistics ===")
+    print(f"Total images processed: {stats['total']}")
+    print(f"Successful detections: {stats['successful_detections']} ({(stats['successful_detections']/stats['total']*100):.1f}%)")
+    print(f"Failed detections: {stats['failed_detections']} ({(stats['failed_detections']/stats['total']*100):.1f}%)")
+    if stats['successful_detections'] > 0:
+        print(f"\nAmong successful detections:")
+        print(f"Correct matches: {stats['matches']} ({(stats['matches']/stats['successful_detections']*100):.1f}%)")
+        print(f"Mismatches: {stats['mismatches']} ({(stats['mismatches']/stats['successful_detections']*100):.1f}%)")
+
 if __name__ == "__main__":
-    # Regex pattern: ends with .jpg or .jpeg
-    pattern = re.compile(r'\.(jpg|jpeg|png)$', re.IGNORECASE)
-    for root, dirs, files in os.walk(image_path):
-        print("Directory:", dirs)
-        for file in files:
-            lower_file = file.lower()
-            # Check for double image extensions
-            extensions = ['.jpg', '.jpeg', '.png']
-            ext_count = sum([lower_file.count(ext) for ext in extensions])
-            if ext_count > 1:
-                # Remove the last extension
-                base, ext = os.path.splitext(file)
-                new_file = base
-                # If still ends with an image extension, keep it
-                for ext2 in extensions:
-                    if new_file.lower().endswith(ext2):
-                        break
-                else:
-                    # If not, add back the previous extension
-                    new_file = base + ext
-                old_path = os.path.join(root, file)
-                new_path = os.path.join(root, new_file)
-                if not os.path.exists(new_path):
-                    os.rename(old_path, new_path)
-                    file = new_file
-                else:
-                    file = new_file  # fallback if already exists
-            if pattern.search(file):
-                print(os.path.join(root, file))
-                main(os.path.join(root, file))
+    # Get all training data from XML files
+    print("Reading training data from XML files...")
+    training_data = get_training_data(DATA_DIR)
+    print(f"Found {len(training_data)} image-label pairs")
+    
+    # Save all data to labels file
+    save_to_labels_file(training_data)
+    print(f"Saved all labels to {LABELS_FILE}")
+    
+    # Verify a sample of detections against XML data
+    print("\nVerifying plate detections...")
+    sample_size = 10  # Adjust this number to process more or fewer samples
+    stats = verify_detections(training_data, sample_size)
+    print_statistics(stats)
